@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Working Capital Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .dashboard-card { background: white; border: 1px solid #e2e8f0; border-radius: 1.5rem; }
+        .data-table th { font-size: 0.75rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; padding: 1rem; }
+        .data-table td { padding: 1rem; border-top: 1px solid #f1f5f9; }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-5xl mx-auto space-y-8">
+        <header class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h1 class="text-2xl font-bold">Working Capital View</h1>
+            <div class="flex gap-2 items-center">
+                <select id="viewType" onchange="handleSync()" class="border rounded-xl px-3 py-2 text-sm">
+                    <option value="daily">Daily View</option>
+                    <option value="weekly">Weekly View</option>
+                    <option value="monthly">Monthly View</option>
+                </select>
+                <input type="date" id="startDate" class="border rounded-xl px-3 py-2 text-sm">
+                <input type="date" id="endDate" class="border rounded-xl px-3 py-2 text-sm">
+                <button onclick="handleSync()" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:bg-indigo-700">
+                    <i class="fas fa-sync-alt"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-3 gap-6">
+            <div class="dashboard-card p-6 border-l-4 border-blue-500">
+                <p class="text-xs font-bold text-slate-400 uppercase">Total Inflow</p>
+                <h3 id="totalInflow" class="text-3xl font-extrabold mt-1">₹0</h3>
+            </div>
+            <div class="dashboard-card p-6 border-l-4 border-amber-500">
+                <p class="text-xs font-bold text-slate-400 uppercase">Total Outflow</p>
+                <h3 id="totalOutflow" class="text-3xl font-extrabold mt-1">₹0</h3>
+            </div>
+            <div class="dashboard-card p-6 border-l-4 border-emerald-500">
+                <p class="text-xs font-bold text-slate-400 uppercase">Net Working Capital</p>
+                <h3 id="netCapital" class="text-3xl font-extrabold mt-1">₹0</h3>
+            </div>
+        </div>
+
+        <div class="dashboard-card overflow-hidden">
+            <div class="px-6 py-4 border-b border-slate-100 font-bold text-slate-900" id="tableHeader">Breakdown</div>
+            <div class="overflow-x-auto">
+                <table class="w-full data-table text-sm">
+                    <thead>
+                        <tr class="text-left">
+                            <th id="periodCol">Date</th>
+                            <th class="text-right">Inflow</th>
+                            <th class="text-right">Outflow</th>
+                            <th class="text-right">Net Capital</th>
+                        </tr>
+                    </thead>
+                    <tbody id="reconTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSx-Z3yuGmB3mhQac1GNo4S9QB_lXJkoeRbyHQVVXzUyicpb1OfryUZJz2WLgIx_xpXF1YdDB0b1FGf/pub?output=csv";
+        const CURRENCY = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+
+        function parseCSVRow(text) {
+            const result = [];
+            let cur = '', inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { result.push(cur); cur = ''; }
+                else cur += char;
+            }
+            result.push(cur);
+            return result;
+        }
+
+        function getPeriod(dateStr, view) {
+            const d = new Date(dateStr);
+            if (view === 'monthly') return d.toISOString().slice(0, 7);
+            if (view === 'weekly') {
+                const firstDay = new Date(d.setDate(d.getDate() - d.getDay()));
+                return firstDay.toISOString().slice(0, 10);
+            }
+            return dateStr;
+        }
+
+        async function handleSync() {
+            try {
+                const res = await fetch(`${CSV_URL}&cb=${Date.now()}`);
+                const text = await res.text();
+                const rows = text.split('\n');
+                const start = document.getElementById('startDate').value;
+                const end = document.getElementById('endDate').value;
+                const view = document.getElementById('viewType').value;
+                
+                let inTotal = 0, outTotal = 0;
+                let data = {};
+
+                rows.forEach((row, i) => {
+                    if (i === 0 || !row.trim()) return;
+                    const cols = parseCSVRow(row);
+                    
+                    const inDate = cols[6]?.trim();
+                    const inAmt = parseFloat(cols[4]?.replace(/[^0-9.]/g, '') || 0);
+
+                    const outDate = cols[42]?.trim();
+                    const outStatus = cols[43]?.trim();
+                    const outOrderType = cols[45]?.trim();
+                    const outAmt = (outStatus === "COMPLETED" && outOrderType === "PO") ? parseFloat(cols[44]?.replace(/[^0-9.]/g, '') || 0) : 0;
+
+                    const filterDate = (date) => (!start || date >= start) && (!end || date <= end);
+
+                    if (inDate && filterDate(inDate)) {
+                        inTotal += inAmt;
+                        const p = getPeriod(inDate, view);
+                        if (!data[p]) data[p] = { in: 0, out: 0 };
+                        data[p].in += inAmt;
+                    }
+                    if (outDate && filterDate(outDate) && outAmt > 0) {
+                        outTotal += outAmt;
+                        const p = getPeriod(outDate, view);
+                        if (!data[p]) data[p] = { in: 0, out: 0 };
+                        data[p].out += outAmt;
+                    }
+                });
+
+                const net = inTotal - outTotal;
+                const netEl = document.getElementById('netCapital');
+                
+                document.getElementById('totalInflow').innerText = CURRENCY.format(inTotal);
+                document.getElementById('totalOutflow').innerText = CURRENCY.format(outTotal);
+                netEl.innerText = CURRENCY.format(net);
+                
+                // Color Logic: Green if positive, Red if negative
+                netEl.className = `text-3xl font-extrabold mt-1 ${net < 0 ? 'text-rose-600' : 'text-emerald-600'}`;
+                document.getElementById('periodCol').innerText = view.charAt(0).toUpperCase() + view.slice(1);
+                
+                document.getElementById('reconTableBody').innerHTML = Object.keys(data).sort().reverse().map(p => {
+                    const diff = data[p].in - data[p].out;
+                    const diffColor = diff < 0 ? 'text-rose-600' : 'text-emerald-600';
+                    return `
+                        <tr>
+                            <td class="font-medium">${p}</td>
+                            <td class="text-right">${CURRENCY.format(data[p].in)}</td>
+                            <td class="text-right">${CURRENCY.format(data[p].out)}</td>
+                            <td class="text-right font-bold ${diffColor}">${CURRENCY.format(diff)}</td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (e) { console.error(e); }
+        }
+        window.onload = handleSync;
+    </script>
+</body>
+</html>
