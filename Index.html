@@ -1,0 +1,723 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enterprise Working Capital Dashboard</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background-color: #0b0f19;
+            color: #f1f5f9;
+        }
+        .glass-card {
+            background: rgba(17, 24, 39, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1.25rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .glass-card:hover {
+            border-color: rgba(99, 102, 241, 0.3);
+            box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.7);
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
+        /* Active table row effect */
+        .selected-row {
+            background: rgba(99, 102, 241, 0.15) !important;
+            border-left: 4px solid #6366f1 !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <!-- Top Decorative Gradient -->
+    <div class="absolute top-0 left-0 right-0 h-64 bg-gradient-to-b from-indigo-900/20 to-transparent pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-8 relative z-10">
+        
+        <!-- Header Section -->
+        <header class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 pb-6 border-b border-slate-800">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30">
+                        <i class="fa-solid fa-chart-line text-lg"></i>
+                    </span>
+                    <div>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold tracking-tight bg-gradient-to-r from-white via-slate-100 to-indigo-300 bg-clip-text text-transparent">
+                            Working Capital Command Center
+                        </h1>
+                        <p class="text-sm text-slate-400 mt-0.5">Real-time working capital analytics & reconciliation</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Panel -->
+            <div class="flex flex-wrap items-center gap-3 bg-slate-900/60 p-2.5 rounded-2xl border border-slate-800/80 w-full lg:w-auto">
+                <div class="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <div class="relative">
+                        <label class="absolute -top-2 left-3 px-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-slate-900 uppercase">View Mode</label>
+                        <select id="viewType" onchange="handleSync()" class="w-full sm:w-36 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs font-semibold text-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500">
+                            <option value="daily">Daily View</option>
+                            <option value="weekly">Weekly View</option>
+                            <option value="monthly">Monthly View</option>
+                        </select>
+                    </div>
+                    
+                    <div class="relative">
+                        <label class="absolute -top-2 left-3 px-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-slate-900 uppercase">From</label>
+                        <input type="date" id="startDate" onchange="handleSync()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+                    </div>
+
+                    <div class="relative">
+                        <label class="absolute -top-2 left-3 px-1 text-[10px] font-bold tracking-wider text-indigo-400 bg-slate-900 uppercase">To</label>
+                        <input type="date" id="endDate" onchange="handleSync()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="flex gap-2 w-full sm:w-auto mt-2 sm:mt-0 justify-end">
+                    <button onclick="handleSync()" title="Refresh Dashboard Data" class="flex-1 sm:flex-none bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all">
+                        <i id="syncIcon" class="fas fa-sync-alt"></i>
+                        <span>Sync</span>
+                    </button>
+                    <button onclick="exportDataToCSV()" title="Export Filtered Transactions" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition-all">
+                        <i class="fa-solid fa-download"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main KPI Block -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <!-- Inflow -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-blue-500/10 text-8xl font-bold transition-all group-hover:scale-110 pointer-events-none">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                </div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Total Liquidity Inflow</p>
+                        <h3 id="totalInflow" class="text-3xl font-extrabold mt-2 tracking-tight text-white">₹0</h3>
+                    </div>
+                    <span class="p-2.5 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                        <i class="fa-solid fa-arrow-down-long"></i>
+                    </span>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs">
+                    <span class="text-slate-400" id="inflowCount">0 transactions matched</span>
+                </div>
+            </div>
+
+            <!-- Outflow -->
+            <div class="glass-card p-6 relative overflow-hidden group">
+                <div class="absolute -right-4 -bottom-4 text-amber-500/10 text-8xl font-bold transition-all group-hover:scale-110 pointer-events-none">
+                    <i class="fa-solid fa-arrow-trend-down"></i>
+                </div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Completed PO Outflow</p>
+                        <h3 id="totalOutflow" class="text-3xl font-extrabold mt-2 tracking-tight text-white">₹0</h3>
+                    </div>
+                    <span class="p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                        <i class="fa-solid fa-arrow-up-long"></i>
+                    </span>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs">
+                    <span class="text-slate-400" id="outflowCount">0 POs completed</span>
+                </div>
+            </div>
+
+            <!-- Net Capital -->
+            <div class="glass-card p-6 relative overflow-hidden group border-l-4 border-indigo-500">
+                <div class="absolute -right-4 -bottom-4 text-indigo-500/10 text-8xl font-bold transition-all group-hover:scale-110 pointer-events-none">
+                    <i class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-xs font-bold text-indigo-300 uppercase tracking-widest">Net Working Capital</p>
+                        <h3 id="netCapital" class="text-3xl font-extrabold mt-2 tracking-tight text-white">₹0</h3>
+                    </div>
+                    <span id="netIndicatorIcon" class="p-2.5 bg-indigo-500/10 text-indigo-400 rounded-xl border border-indigo-500/20">
+                        <i class="fa-solid fa-wallet"></i>
+                    </span>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs" id="efficiencyIndicator">
+                    <span class="text-slate-400">Operating Ratio: <strong class="text-slate-200" id="operatingRatio">0%</strong></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart Visualization -->
+        <div class="glass-card p-6">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h3 class="text-base font-bold text-white">Working Capital Trend Analysis</h3>
+                    <p class="text-xs text-slate-400">Comparing inflows, outflows, and net margin over selected period</p>
+                </div>
+                <div class="flex gap-2">
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        <span class="h-1.5 w-1.5 rounded-full bg-blue-500"></span> Inflow
+                    </span>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                        <span class="h-1.5 w-1.5 rounded-full bg-amber-500"></span> Outflow
+                    </span>
+                </div>
+            </div>
+            <div class="h-80 w-full">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Split Grid for Tables & Drill-downs -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Aggregated Period Breakdown -->
+            <div class="glass-card lg:col-span-7 flex flex-col overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/35">
+                    <div>
+                        <h3 class="text-base font-bold text-white">Aggregated Balances</h3>
+                        <p class="text-xs text-slate-400">Click a period below to view transaction ledgers</p>
+                    </div>
+                    <span class="text-xs text-slate-400 font-semibold bg-slate-800 px-2.5 py-1 rounded-lg" id="breakdownCounter">
+                        0 Periods
+                    </span>
+                </div>
+                
+                <div class="overflow-x-auto flex-1 max-h-[450px]">
+                    <table class="w-full text-sm text-left">
+                        <thead class="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-900/40 sticky top-0 backdrop-blur">
+                            <tr>
+                                <th class="p-4" id="periodCol">Period</th>
+                                <th class="p-4 text-right">Inflow</th>
+                                <th class="p-4 text-right">Outflow</th>
+                                <th class="p-4 text-right">Net Position</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reconTableBody" class="divide-y divide-slate-800/60">
+                            <!-- Injected dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Transaction Detail Drill-Down (Saves having to guess or open spreadsheets) -->
+            <div class="glass-card lg:col-span-5 flex flex-col overflow-hidden">
+                <div class="px-6 py-4 border-b border-slate-800 bg-slate-900/35 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-base font-bold text-white" id="drilldownTitle">All Ledger Items</h3>
+                        <p class="text-xs text-slate-400" id="drilldownSubtitle">Select any period to isolate items</p>
+                    </div>
+                    <button id="clearDrilldown" onclick="clearDrilldownFilter()" class="hidden text-[11px] font-bold bg-slate-800 hover:bg-indigo-600/20 text-slate-300 hover:text-indigo-400 border border-slate-700 hover:border-indigo-500/30 px-2.5 py-1 rounded-lg transition-all">
+                        Reset Filter
+                    </button>
+                </div>
+                
+                <div class="p-4 border-b border-slate-800 bg-slate-900/10 flex gap-2">
+                    <div class="relative w-full">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-500"></i>
+                        <input type="text" id="txnSearch" oninput="filterDrilldownTable()" placeholder="Search transactions..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-4 py-1.5 text-xs text-slate-300 placeholder-slate-500 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <div class="overflow-y-auto flex-1 max-h-[386px]">
+                    <div id="drilldownList" class="divide-y divide-slate-800/50">
+                        <!-- Dynamic items -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Error/No Data Overlay Modal -->
+    <div id="errorModal" class="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 text-center space-y-4">
+            <div class="h-12 w-12 rounded-full bg-rose-500/10 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/20">
+                <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-white">Failed to retrieve data</h3>
+                <p class="text-sm text-slate-400 mt-2">There was an issue pulling or parsing the Google Sheets file. Let's make sure you're connected or refresh.</p>
+            </div>
+            <button onclick="document.getElementById('errorModal').classList.add('hidden')" class="w-full bg-slate-800 text-white font-semibold text-sm py-2 px-4 rounded-xl hover:bg-slate-700 transition">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vSx-Z3yuGmB3mhQac1GNo4S9QB_lXJkoeRbyHQVVXzUyicpb1OfryUZJz2WLgIx_xpXF1YdDB0b1FGf/pub?output=csv";
+        const CURRENCY = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
+        
+        let rawRecords = []; // Stores parsed rows
+        let trendChartInstance = null;
+        let selectedPeriodFilter = null; // Stored when user clicks a row
+
+        // Better CSV parser handling quoted comma values beautifully
+        function parseCSVRow(text) {
+            const result = [];
+            let cur = '', inQuotes = false;
+            for (let i = 0; i < text.length; i++) {
+                let char = text[i];
+                if (char === '"') inQuotes = !inQuotes;
+                else if (char === ',' && !inQuotes) { result.push(cur); cur = ''; }
+                else cur += char;
+            }
+            result.push(cur);
+            return result;
+        }
+
+        // Custom periods
+        function getPeriod(dateStr, view) {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return 'Unknown Date';
+            if (view === 'monthly') {
+                return d.toLocaleString('default', { month: 'short', year: 'numeric' });
+            }
+            if (view === 'weekly') {
+                const firstDay = new Date(d.setDate(d.getDate() - d.getDay()));
+                return 'W/C ' + firstDay.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+            }
+            // Daily standard pretty date
+            return d.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        // Help sort correctly by chronological order back in logic
+        function getChronologicalKey(dateStr, view) {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return '0000-00-00';
+            if (view === 'monthly') return d.toISOString().slice(0, 7); // YYYY-MM
+            if (view === 'weekly') {
+                const firstDay = new Date(d.setDate(d.getDate() - d.getDay()));
+                return firstDay.toISOString().slice(0, 10);
+            }
+            return d.toISOString().slice(0, 10);
+        }
+
+        // Primary application loader
+        async function handleSync() {
+            const syncIcon = document.getElementById('syncIcon');
+            syncIcon.classList.add('fa-spin');
+            
+            try {
+                const res = await fetch(`${CSV_URL}&cb=${Date.now()}`);
+                if (!res.ok) throw new Error('Data fetch failed');
+                
+                const text = await res.text();
+                const rows = text.split('\n');
+                
+                rawRecords = []; // Reset local records cache
+                
+                rows.forEach((row, i) => {
+                    if (i === 0 || !row.trim()) return;
+                    const cols = parseCSVRow(row);
+                    
+                    // Parse Inflows
+                    const inDate = cols[6]?.trim();
+                    const inAmt = parseFloat(cols[4]?.replace(/[^0-9.]/g, '') || 0);
+                    
+                    // Parse Outflows
+                    const outDate = cols[42]?.trim();
+                    const outStatus = cols[43]?.trim();
+                    const outOrderType = cols[45]?.trim();
+                    const outAmt = (outStatus === "COMPLETED" && outOrderType === "PO") ? parseFloat(cols[44]?.replace(/[^0-9.]/g, '') || 0) : 0;
+
+                    // Push safe object records
+                    if (inDate || outDate) {
+                        rawRecords.push({
+                            id: i,
+                            inDate,
+                            inAmt,
+                            outDate,
+                            outAmt,
+                            outStatus,
+                            outOrderType
+                        });
+                    }
+                });
+
+                // Set initial start/end dates if empty based on actual ranges
+                prepopulateDateInputs();
+
+                // Build views
+                renderDashboard();
+                
+            } catch (e) {
+                console.error(e);
+                document.getElementById('errorModal').classList.remove('hidden');
+            } finally {
+                syncIcon.classList.remove('fa-spin');
+            }
+        }
+
+        function prepopulateDateInputs() {
+            const startInput = document.getElementById('startDate');
+            const endInput = document.getElementById('endDate');
+
+            if (!startInput.value || !endInput.value) {
+                let dates = [];
+                rawRecords.forEach(r => {
+                    if (r.inDate && !isNaN(new Date(r.inDate).getTime())) dates.push(new Date(r.inDate));
+                    if (r.outDate && !isNaN(new Date(r.outDate).getTime())) dates.push(new Date(r.outDate));
+                });
+
+                if (dates.length > 0) {
+                    const minDate = new Date(Math.min(...dates));
+                    const maxDate = new Date(Math.max(...dates));
+                    
+                    if (!startInput.value) startInput.value = minDate.toISOString().slice(0, 10);
+                    if (!endInput.value) endInput.value = maxDate.toISOString().slice(0, 10);
+                }
+            }
+        }
+
+        function renderDashboard() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            const view = document.getElementById('viewType').value;
+            
+            let inTotal = 0, outTotal = 0;
+            let inCount = 0, outCount = 0;
+            let aggregatedData = {}; // structure: { chronKey: { prettyLabel: "", in: 0, out: 0 } }
+
+            const filterDate = (date) => (!start || date >= start) && (!end || date <= end);
+
+            rawRecords.forEach(r => {
+                // Check inflow
+                if (r.inDate && filterDate(r.inDate) && r.inAmt > 0) {
+                    inTotal += r.inAmt;
+                    inCount++;
+                    const cKey = getChronologicalKey(r.inDate, view);
+                    const label = getPeriod(r.inDate, view);
+                    if (!aggregatedData[cKey]) aggregatedData[cKey] = { label, in: 0, out: 0 };
+                    aggregatedData[cKey].in += r.inAmt;
+                }
+
+                // Check outflow
+                if (r.outDate && filterDate(r.outDate) && r.outAmt > 0) {
+                    outTotal += r.outAmt;
+                    outCount++;
+                    const cKey = getChronologicalKey(r.outDate, view);
+                    const label = getPeriod(r.outDate, view);
+                    if (!aggregatedData[cKey]) aggregatedData[cKey] = { label, in: 0, out: 0 };
+                    aggregatedData[cKey].out += r.outAmt;
+                }
+            });
+
+            const net = inTotal - outTotal;
+            
+            // Update Metric Cards
+            document.getElementById('totalInflow').innerText = CURRENCY.format(inTotal);
+            document.getElementById('totalOutflow').innerText = CURRENCY.format(outTotal);
+            document.getElementById('netCapital').innerText = CURRENCY.format(net);
+            document.getElementById('inflowCount').innerText = `${inCount} transaction inflow records`;
+            document.getElementById('outflowCount').innerText = `${outCount} PO outlays completed`;
+
+            // Style Net Working Capital
+            const netEl = document.getElementById('netCapital');
+            const netIcon = document.getElementById('netIndicatorIcon');
+            if (net < 0) {
+                netEl.className = "text-3xl font-extrabold mt-2 tracking-tight text-rose-500";
+                netIcon.className = "p-2.5 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/20";
+            } else {
+                netEl.className = "text-3xl font-extrabold mt-2 tracking-tight text-emerald-500";
+                netIcon.className = "p-2.5 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20";
+            }
+
+            // Calculation of Operating Ratio (Outflow / Inflow)
+            const opRatio = inTotal > 0 ? ((outTotal / inTotal) * 100).toFixed(1) : 0;
+            document.getElementById('operatingRatio').innerText = `${opRatio}%`;
+            
+            const ratioLevel = document.getElementById('efficiencyIndicator');
+            if (opRatio > 100) {
+                ratioLevel.className = "mt-4 flex items-center gap-2 text-xs text-rose-400";
+            } else {
+                ratioLevel.className = "mt-4 flex items-center gap-2 text-xs text-slate-400";
+            }
+
+            // Generate Periodic Table Breakdown sorted reverse chronologically
+            const sortedKeys = Object.keys(aggregatedData).sort().reverse();
+            document.getElementById('breakdownCounter').innerText = `${sortedKeys.length} ${view.charAt(0).toUpperCase() + view.slice(1)}s`;
+            document.getElementById('periodCol').innerText = view.charAt(0).toUpperCase() + view.slice(1);
+
+            document.getElementById('reconTableBody').innerHTML = sortedKeys.map(key => {
+                const item = aggregatedData[key];
+                const diff = item.in - item.out;
+                const diffColor = diff < 0 ? 'text-rose-500' : 'text-emerald-500';
+                const isSelectedClass = selectedPeriodFilter === key ? 'selected-row' : '';
+
+                return `
+                    <tr onclick="filterByPeriod('${key}', '${item.label}')" class="hover:bg-slate-900/60 transition-all cursor-pointer ${isSelectedClass}">
+                        <td class="p-4 font-semibold text-slate-200">${item.label}</td>
+                        <td class="p-4 text-right text-slate-300">${CURRENCY.format(item.in)}</td>
+                        <td class="p-4 text-right text-slate-300">${CURRENCY.format(item.out)}</td>
+                        <td class="p-4 text-right font-bold ${diffColor}">${CURRENCY.format(diff)}</td>
+                    </tr>
+                `;
+            }).join('');
+
+            // Build Trend Chart
+            buildTrendChart(aggregatedData);
+
+            // Redraw drill-down details table
+            buildLedgerDrilldown();
+        }
+
+        function buildTrendChart(dataObj) {
+            const keys = Object.keys(dataObj).sort(); // chronological view for linear trends
+            const labels = keys.map(k => dataObj[k].label);
+            const inflowData = keys.map(k => dataObj[k].in);
+            const outflowData = keys.map(k => dataObj[k].out);
+            const netData = keys.map(k => dataObj[k].in - dataObj[k].out);
+
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            if (trendChartInstance) {
+                trendChartInstance.destroy();
+            }
+
+            trendChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Net Capital',
+                            data: netData,
+                            type: 'line',
+                            borderColor: '#6366f1',
+                            borderWidth: 3,
+                            fill: false,
+                            tension: 0.3,
+                            yAxisID: 'y',
+                            pointBackgroundColor: '#818cf8',
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Inflows',
+                            data: inflowData,
+                            backgroundColor: 'rgba(59, 130, 246, 0.45)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Outflows',
+                            data: outflowData,
+                            backgroundColor: 'rgba(245, 158, 11, 0.45)',
+                            borderColor: '#f59e0b',
+                            borderWidth: 1.5,
+                            borderRadius: 6,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false // We use our premium customized legends
+                        },
+                        tooltip: {
+                            backgroundColor: '#1e293b',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#cbd5e1',
+                            borderColor: '#334155',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.raw !== null) {
+                                        label += CURRENCY.format(context.raw);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#94a3b8', font: { size: 10 } }
+                        },
+                        y: {
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { 
+                                color: '#94a3b8', 
+                                font: { size: 10 },
+                                callback: function(value) {
+                                    return CURRENCY.format(value);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Click a periodic row to filter
+        function filterByPeriod(cKey, label) {
+            if (selectedPeriodFilter === cKey) {
+                // If double clicked, clear filter
+                clearDrilldownFilter();
+            } else {
+                selectedPeriodFilter = cKey;
+                document.getElementById('drilldownTitle').innerText = `${label} Details`;
+                document.getElementById('drilldownSubtitle').innerText = "Filtered by selected period";
+                document.getElementById('clearDrilldown').classList.remove('hidden');
+                renderDashboard(); // rebuild UI to showcase highlighted row and filter lists
+            }
+        }
+
+        function clearDrilldownFilter() {
+            selectedPeriodFilter = null;
+            document.getElementById('drilldownTitle').innerText = "All Ledger Items";
+            document.getElementById('drilldownSubtitle').innerText = "Select any period to isolate items";
+            document.getElementById('clearDrilldown').classList.add('hidden');
+            renderDashboard();
+        }
+
+        // Render Ledger drilldown dynamically
+        function buildLedgerDrilldown() {
+            const listEl = document.getElementById('drilldownList');
+            const searchVal = document.getElementById('txnSearch').value.toLowerCase();
+            const view = document.getElementById('viewType').value;
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+
+            const filterDate = (date) => (!start || date >= start) && (!end || date <= end);
+
+            // Construct array of all matching sub-transactions
+            let ledgerItems = [];
+
+            rawRecords.forEach(r => {
+                if (r.inDate && filterDate(r.inDate) && r.inAmt > 0) {
+                    const cKey = getChronologicalKey(r.inDate, view);
+                    if (!selectedPeriodFilter || selectedPeriodFilter === cKey) {
+                        ledgerItems.push({
+                            type: 'inflow',
+                            date: r.inDate,
+                            amt: r.inAmt,
+                            meta: `Transaction ID #${r.id}`
+                        });
+                    }
+                }
+                if (r.outDate && filterDate(r.outDate) && r.outAmt > 0) {
+                    const cKey = getChronologicalKey(r.outDate, view);
+                    if (!selectedPeriodFilter || selectedPeriodFilter === cKey) {
+                        ledgerItems.push({
+                            type: 'outflow',
+                            date: r.outDate,
+                            amt: r.outAmt,
+                            meta: `PO Completed: Order ID #${r.id}`
+                        });
+                    }
+                }
+            });
+
+            // Sort all sub-ledgers chronologically backwards
+            ledgerItems.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            // Apply search string filtration if exists
+            if (searchVal) {
+                ledgerItems = ledgerItems.filter(item => 
+                    item.meta.toLowerCase().includes(searchVal) || 
+                    item.date.includes(searchVal) ||
+                    item.amt.toString().includes(searchVal)
+                );
+            }
+
+            if (ledgerItems.length === 0) {
+                listEl.innerHTML = `
+                    <div class="p-8 text-center text-slate-500">
+                        <i class="fa-solid fa-folder-open text-2xl mb-2 block text-slate-600"></i>
+                        No matching transactions found
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = ledgerItems.map(item => {
+                const colorClass = item.type === 'inflow' ? 'text-emerald-400 bg-emerald-500/10' : 'text-amber-400 bg-amber-500/10';
+                const icon = item.type === 'inflow' ? 'fa-solid fa-arrow-down' : 'fa-solid fa-arrow-up';
+                const prefix = item.type === 'inflow' ? '+' : '-';
+                
+                return `
+                    <div class="p-4 flex items-center justify-between hover:bg-slate-900/40 transition">
+                        <div class="flex items-center gap-3">
+                            <span class="h-8 w-8 flex items-center justify-center rounded-lg ${colorClass}">
+                                <i class="${icon} text-xs"></i>
+                            </span>
+                            <div>
+                                <h4 class="text-xs font-semibold text-slate-200">${item.meta}</h4>
+                                <span class="text-[10px] text-slate-500">${new Date(item.date).toLocaleDateString(undefined, {month: 'short', day: 'numeric', year: 'numeric'})}</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold ${item.type === 'inflow' ? 'text-emerald-400' : 'text-amber-400'}">
+                            ${prefix} ${CURRENCY.format(item.amt)}
+                        </span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Live input search filter
+        function filterDrilldownTable() {
+            buildLedgerDrilldown();
+        }
+
+        // Premium feature: Allows exporting the currently filtered transactions directly to a custom CSV file
+        function exportDataToCSV() {
+            const start = document.getElementById('startDate').value;
+            const end = document.getElementById('endDate').value;
+            
+            let csvContent = "data:text/csv;charset=utf-8,Type,Date,Amount,Reference/Status\n";
+            const filterDate = (date) => (!start || date >= start) && (!end || date <= end);
+
+            rawRecords.forEach(r => {
+                if (r.inDate && filterDate(r.inDate) && r.inAmt > 0) {
+                    csvContent += `Inflow,${r.inDate},${r.inAmt},Transaction Inbound\n`;
+                }
+                if (r.outDate && filterDate(r.outDate) && r.outAmt > 0) {
+                    csvContent += `Outflow,${r.outDate},${r.outAmt},Completed PO (${r.outStatus})\n`;
+                }
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `working_capital_export_${start || 'all'}_to_${end || 'all'}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        window.onload = handleSync;
+    </script>
+</body>
+</html>
