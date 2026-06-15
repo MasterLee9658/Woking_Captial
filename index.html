@@ -42,7 +42,7 @@
                 <h3 id="totalOutflow" class="text-3xl font-extrabold mt-1">₹0</h3>
             </div>
             <div class="dashboard-card p-6 border-l-4 border-emerald-500">
-                <p class="text-xs font-bold text-slate-400 uppercase">Net Working Capital</p>
+                <p class="text-xs font-bold text-slate-400 uppercase">Net Working Capital (O-I)</p>
                 <h3 id="netCapital" class="text-3xl font-extrabold mt-1">₹0</h3>
             </div>
         </div>
@@ -56,7 +56,7 @@
                             <th id="periodCol">Date</th>
                             <th class="text-right">Inflow</th>
                             <th class="text-right">Outflow</th>
-                            <th class="text-right">Net Capital</th>
+                            <th class="text-right">Net Capital (O-I)</th>
                         </tr>
                     </thead>
                     <tbody id="reconTableBody"></tbody>
@@ -132,20 +132,21 @@
                     }
                 });
 
-                const net = inTotal - outTotal;
+                // Formula: Outflow - Inflow
+                const net = outTotal - inTotal;
                 const netEl = document.getElementById('netCapital');
                 
                 document.getElementById('totalInflow').innerText = CURRENCY.format(inTotal);
                 document.getElementById('totalOutflow').innerText = CURRENCY.format(outTotal);
                 netEl.innerText = CURRENCY.format(net);
                 
-                // Color Logic: Green if positive, Red if negative
-                netEl.className = `text-3xl font-extrabold mt-1 ${net < 0 ? 'text-rose-600' : 'text-emerald-600'}`;
+                // Color Logic: Green if Outflow < Inflow (net <= 0), Red if Outflow > Inflow (net > 0)
+                netEl.className = `text-3xl font-extrabold mt-1 ${net <= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
                 document.getElementById('periodCol').innerText = view.charAt(0).toUpperCase() + view.slice(1);
                 
                 document.getElementById('reconTableBody').innerHTML = Object.keys(data).sort().reverse().map(p => {
-                    const diff = data[p].in - data[p].out;
-                    const diffColor = diff < 0 ? 'text-rose-600' : 'text-emerald-600';
+                    const diff = data[p].out - data[p].in;
+                    const diffColor = diff <= 0 ? 'text-emerald-600' : 'text-rose-600';
                     return `
                         <tr>
                             <td class="font-medium">${p}</td>
