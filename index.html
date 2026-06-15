@@ -108,9 +108,14 @@
                     if (i === 0 || !row.trim()) return;
                     const cols = parseCSVRow(row);
                     
-                    const inDate = cols[6]?.trim();
-                    const inAmt = parseFloat(cols[4]?.replace(/[^0-9.]/g, '') || 0);
+                    // Inflow: E(4) ref by G(6) AND BB(53) ref by BD(55)
+                    const inDate1 = cols[6]?.trim();
+                    const inAmt1 = parseFloat(cols[4]?.replace(/[^0-9.]/g, '') || 0);
+                    
+                    const inDate2 = cols[55]?.trim();
+                    const inAmt2 = parseFloat(cols[53]?.replace(/[^0-9.]/g, '') || 0);
 
+                    // Outflow: AQ(42)=Date, AR(43)=Status, AS(44)=Amount, AT(45)=OrderType
                     const outDate = cols[42]?.trim();
                     const outStatus = cols[43]?.trim();
                     const outOrderType = cols[45]?.trim();
@@ -118,12 +123,21 @@
 
                     const filterDate = (date) => (!start || date >= start) && (!end || date <= end);
 
-                    if (inDate && filterDate(inDate)) {
-                        inTotal += inAmt;
-                        const p = getPeriod(inDate, view);
+                    // Process Inflows
+                    if (inDate1 && filterDate(inDate1)) {
+                        inTotal += inAmt1;
+                        const p = getPeriod(inDate1, view);
                         if (!data[p]) data[p] = { in: 0, out: 0 };
-                        data[p].in += inAmt;
+                        data[p].in += inAmt1;
                     }
+                    if (inDate2 && filterDate(inDate2)) {
+                        inTotal += inAmt2;
+                        const p = getPeriod(inDate2, view);
+                        if (!data[p]) data[p] = { in: 0, out: 0 };
+                        data[p].in += inAmt2;
+                    }
+
+                    // Process Outflows
                     if (outDate && filterDate(outDate) && outAmt > 0) {
                         outTotal += outAmt;
                         const p = getPeriod(outDate, view);
@@ -132,15 +146,12 @@
                     }
                 });
 
-                // Formula: Outflow - Inflow
                 const net = outTotal - inTotal;
                 const netEl = document.getElementById('netCapital');
                 
                 document.getElementById('totalInflow').innerText = CURRENCY.format(inTotal);
                 document.getElementById('totalOutflow').innerText = CURRENCY.format(outTotal);
                 netEl.innerText = CURRENCY.format(net);
-                
-                // Color Logic: Green if Outflow < Inflow (net <= 0), Red if Outflow > Inflow (net > 0)
                 netEl.className = `text-3xl font-extrabold mt-1 ${net <= 0 ? 'text-emerald-600' : 'text-rose-600'}`;
                 document.getElementById('periodCol').innerText = view.charAt(0).toUpperCase() + view.slice(1);
                 
